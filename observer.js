@@ -140,14 +140,17 @@
       const k = keyOf(role, text);
       const existingId = byKey.get(k);
       if (existingId) {
-        seen.set(node, { id: existingId, lastText: text, role });
+        seen.set(node, { id: existingId, lastText: text, role, captured: text });
         node.setAttribute('data-ai-log-id', existingId);
         return existingId;
       }
     }
 
     const id = newId();
-    seen.set(node, { id, lastText: text, role });
+    // `captured` is the append-only transcript. Every novel substring we
+    // ever observe in this node is appended; the model rewriting earlier
+    // text never erases what we already saw.
+    seen.set(node, { id, lastText: text, role, captured: text });
     if (text) byKey.set(keyOf(role, text), id);
     node.setAttribute('data-ai-log-id', id);
     if (role === 'user') stats.users++;
@@ -177,9 +180,34 @@
     if (rec.lastText) byKey.delete(keyOf(rec.role, rec.lastText));
     if (text) byKey.set(keyOf(rec.role, text), rec.id);
     rec.lastText = text;
-    send('log:update', {
+
+    // Append-only transcript: figure out what part of `text` is new
+    // relative to whatever we've already captured, and append only that.
+    // Falls back to logging both branches when the model rewrites prior
+    // tokens (so nothing the model ever showed is lost).
+    const captured = rec.captured || '';
+    let appended = '';
+    if (!captured) {
+      appended = text;
+    } else if (text.startsWith(captured)) {
+      appended = text.slice(captured.length);
+    } else {
+      // Find the longest prefix of `text` that is still inside `captured`,
+      // then keep what we already have plus everything after that point in
+      // `text`. We also prepend a marker so the rewrite is visible in the
+      // log instead of silently overwriting the earlier tokens.
+      let i = Math.min(captured.length, text.length);
+      while (i > 0 && !captured.includes(text.slice(0, i))) i--;
+      const overlap = text.slice(0, i);
+      const tail = text.slice(i);
+      appended = (overlap ? '' : '\n[~rewrite~] ') + tail;
+    }
+    if (!appended) return;
+    rec.captured = captured + appended;
+
+    send('log:append', {
       id: rec.id,
-      content: text,
+      append: appended,
       updatedAt: new Date().toISOString(),
     });
     stats.lastUpdate = Date.now();

@@ -122,6 +122,20 @@ function renderEntry(entry) {
   if (wasAtBottom) scrollToBottom();
 }
 
+function appendToEntry(entry) {
+  if (!entry || !entry.id) return;
+  const record = entries.get(entry.id);
+  if (!record) return;
+  const wasAtBottom = isAtBottom();
+  const piece = entry.append || '';
+  if (piece) {
+    record.contentNode.appendChild(document.createTextNode(piece));
+    record.data.content = (record.data.content || '') + piece;
+  }
+  if (record.data.role === 'assistant') markStreaming(record);
+  if (wasAtBottom) scrollToBottom();
+}
+
 function clearAll() {
   entries.clear();
   entryCount = 0;
@@ -181,6 +195,9 @@ function connect() {
       case 'log:create':
       case 'log:update':
         renderEntry(msg.entry);
+        break;
+      case 'log:append':
+        appendToEntry(msg.entry);
         break;
       case 'log:raw':
         if (els.showRaw.checked) appendRaw(msg.entry);
