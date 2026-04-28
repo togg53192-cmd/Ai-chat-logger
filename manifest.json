@@ -1,0 +1,50 @@
+{
+  "manifest_version": 3,
+  "name": "AI Chat Logger",
+  "version": "0.1.0",
+  "description": "Capture and log AI chat messages in real-time from Claude, ChatGPT, Gemini, and DeepSeek.",
+  "permissions": ["storage", "sidePanel", "scripting", "tabs"],
+  "host_permissions": [
+    "https://claude.ai/*",
+    "https://chat.openai.com/*",
+    "https://chatgpt.com/*",
+    "https://gemini.google.com/*",
+    "https://chat.deepseek.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "viewer/viewer.html"
+  },
+  "action": {
+    "default_title": "Open AI Chat Logger"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://claude.ai/*",
+        "https://chat.openai.com/*",
+        "https://chatgpt.com/*",
+        "https://gemini.google.com/*",
+        "https://chat.deepseek.com/*"
+      ],
+      "js": ["content/observer.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["content/inject.js"],
+      "matches": [
+        "https://claude.ai/*",
+        "https://chat.openai.com/*",
+        "https://chatgpt.com/*",
+        "https://gemini.google.com/*",
+        "https://chat.deepseek.com/*"
+      ]
+    }
+  ]
+}
