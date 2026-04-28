@@ -82,6 +82,23 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const stored = upsert(entry);
     broadcast({ type: msg.type, entry: stored });
     scheduleFlush();
+  } else if (msg.type === 'log:append') {
+    // Append-only update: concatenate to existing content rather than
+    // overwriting it. Preserves intermediate streaming tokens even when
+    // the model later rewrites them.
+    const incoming = msg.entry || {};
+    const idx = logs.findIndex((e) => e.id === incoming.id);
+    if (idx >= 0) {
+      const prev = logs[idx];
+      const next = {
+        ...prev,
+        content: (prev.content || '') + (incoming.append || ''),
+        updatedAt: incoming.updatedAt,
+      };
+      logs[idx] = next;
+      broadcast({ type: 'log:append', entry: { id: next.id, append: incoming.append || '', updatedAt: incoming.updatedAt } });
+      scheduleFlush();
+    }
   } else if (msg.type === 'log:raw') {
     // Forward raw network captures without persisting to the main logs list.
     broadcast({ type: 'log:raw', entry: msg.entry });
